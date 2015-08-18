@@ -34,14 +34,10 @@ def blocked_for(_s, _e, _bsize, body, f, g, js):
         _n = _ee - _ss
         _l = nblocks(_n, _bsize)
         sums = [0]*_l
-        print("Entroooo")
         #paralelizar
 	jobs = [(i, js.submit(pBlocked_for, (_ss, i, _bsize, _ee, body, f, g,), (reduceSerial,))) for i in range(0,_l)]
 	for i, job in jobs:
                 sums[i] = job()
-#	for i in range(0,_l):
-#		sums[i] = pBlocked_for(_ss, i, _bsize, _ee, body, f, g)
-	print("sums: ", sums)
         return sums
 
 def reduce(s, e, f, g, js):
@@ -62,6 +58,28 @@ def fillSS(A,i):
 	return (ord(A[i]) + 1)
 
 ############
+
+def fillC(s, i, bits):
+	j = 1 + (i + i + i)/2
+	print("j: ", j)
+	return [(s[j] << 2*bits) + (s[j+1] << bits) + s[j+2], j]
+
+############
+
+def suffixArrayRec(s, n, K, js):
+	n = n + 1
+	n0 = (n + 2)/3
+	n1 = (n + 1)/3
+	n12 = n - n0
+	C = [0]*n12
+	bits = Utils.log2Up(K)
+	if (bits < 11):
+		print(n12)
+		jobs = [(i, js.submit(fillC,(s,i,bits),)) for i in range(0,n12)]
+		for i, job in jobs:
+			C[i] = job()
+
+
 def suffixArray(sa_lcp, js):
 	sa_lcp.SS = [0]*sa_lcp.N
 	jobs = [(inp, js.submit(fillSS,(sa_lcp.S,inp), )) for inp in range(0,n)]
@@ -69,7 +87,7 @@ def suffixArray(sa_lcp, js):
 		sa_lcp.SS[i] = job()
 	#Reduce para obtener k
 	k = 1 + reduceInit(sa_lcp.SS, sa_lcp.N, max, js)
-#	print("k: ", str(k))
+	SA_LCP = suffixArrayRec(sa_lcp.SS, sa_lcp.N, k, js)
 
 #def suffixArray():
 
