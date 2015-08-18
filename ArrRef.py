@@ -15,8 +15,8 @@ class ArrRef:
 		if(len(self.A) == 2):
 			return self.A[1]
 
-	def eBitsExec(self,w,p):
-		return w.mask&(w.f(self,p)>>w.offset)
+	def eBitsExec(self,w):
+		return w.mask&(w.f(self)>>w.offset)
 
 class eBits(ArrRef):
 	def __init__(self,bits,offset,f):

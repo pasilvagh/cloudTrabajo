@@ -10,6 +10,80 @@ dill.settings['recurse'] = True
 _BSIZE = 2048
 _SCAN_LOG_BSIZE = 10
 _SCAN_BSIZE = (1 << _SCAN_LOG_BSIZE)
+_INT_MAX = sys.maxint
+MAX_RADIX = 8 
+BUCKETS = 256
+_TRANS_THRESHHOLD = 64
+
+'''
+def integerSort(A, n, js):
+	maxV = reduce(A, n, max, js)
+	iSort(A, NULL, n, maxV, id, js)
+
+def integerSort(A, n, js):
+	maxV = mapReduce(A,n,max, ArrRef.getF, js)
+	iSort(A, NULL, n, maxV, ArrRef.getF, js)
+
+'''
+
+def radixBlock(A, B, Tmp, counts, offsets, Boffset, n, m, extract):
+	for i in range(0,m):
+		counts[i] = 0
+	for j in range(0,n):
+		k = Tmp = ArrRef(A[j]).eBitsExec(extract)
+		counts[k] += 1
+	s = Boffset
+	for i in range(0,m):
+		s += counts[i]
+		offsets[i] = s
+	for j in range(n-1,-1,-1):
+		x -= offsets[Tmp[j]]
+		B[x] = A[j]
+
+def radialStepSerial(A, B, Tmp, buckets, n, m, extract):
+	radixBlock(A, B, Tmp, buckets, buckets, 0, n, m, extract)
+	for i in range(0,n):
+		A[i] = B[i]
+	return
+
+###################
+
+def parallel_rBlock(A, B, Tmp, m, extract, cnts, nn, oB, i):
+	od = i*nn
+	nni = min(max(n-od,0), nn)
+	radixBlock(A+od, B, Tmp+od, cnts + m*i, oB + m*i, od, nni, m, extract)
+
+
+##################
+
+def radixStep(A, B, Tmp, BK, numBK, n, m, top, extract, js):
+	expand = 32
+	blocks = min(numBK/3,(1+n/(BUCKETS*expand)))
+	if (blocks < 2):
+		radixStepSerial(A, B, Tmp, BK[0], n, m, extract)
+		return
+	nn = (n+blocks-1)/blocks
+	cnts = BK
+	oA = (BK+blocks)
+	oB = (BK+2*blocks)
+	
+	jobs = [(i, js.submit(parallel_rBlock, (A, B, Tmp, m, extract, cnts, nn, oB, i,), (radixBlock,))) for i in range(0,blocks)]
+	for i, job in jobs:
+		job()
+	
+
+
+def iSort1(A, bucketOffsets, n, m, bottomUp, f, js):
+	x = iSortSpace(n)
+	print("x: ", x)
+
+
+def iSortInic(A, n, m, f, js):
+	iSort1(A, None, n, m, False, f, js)
+
+
+def radixSortPair(A, n, m, js):
+	iSortInic(A, n, m, ArrRef.getF, js)
 
 def reduceSerial(s, e, f, g):
 	r = g(s)
@@ -59,10 +133,23 @@ def fillSS(A,i):
 
 ############
 
-def fillC(s, i, bits):
-	j = 1 + (i + i + i)/2
-	print("j: ", j)
+def fillCBig(s, j, bits):
 	return [(s[j] << 2*bits) + (s[j+1] << bits) + s[j+2], j]
+
+############
+
+def fillC(s, j):
+        return [s[j + 2], j]
+
+############
+
+def fillCFirst(s, i):
+	return s[i]
+
+############
+
+def fillSorted12(value):
+	return value
 
 ############
 
@@ -73,15 +160,46 @@ def suffixArrayRec(s, n, K, js):
 	n12 = n - n0
 	C = [0]*n12
 	bits = Utils.log2Up(K)
+	print("bits: ", bits)
 	if (bits < 11):
-		print(n12)
-		jobs = [(i, js.submit(fillC,(s,i,bits),)) for i in range(0,n12)]
+		jobs = [(i, js.submit(fillCBig,(s, 1 + (i + i + i)/2,bits),)) for i in range(0,n12)]
 		for i, job in jobs:
 			C[i] = job()
 
+	#iniciar radixSort
+		radixSortPair(C, n12, 1 << 3*bits, js)
+	else:
+		jobs = [(i, js.submit(fillC,(s,1 + (i + i + i)/2))) for i in range(0,n12)]
+		for i, job in jobs:
+			C[i] = job()
+
+		radixSortPair(C, n12, K, js)
+		jobs = [(i, js.submit(fillCFirst,(s, C[i][1] + 1),)) for i in range(0,n12)]
+		for i, job in jobs:
+			C[i][0] = job()
+		radixSortPair(C, n12, K, js)
+		jobs = [(i, js.submit(fillCFirst,(s, C[i][1]),)) for i in range(0,n12)]
+		for i, job in jobs:
+			C[i][0] = job()
+		radixSortPair(C, n12, K, js)
+
+###########
+	sorted12 = [0]*n12
+	print(C)
+#	jobs = [(i, js.submit(fillSorted12,(C[i][1]),)) for i in range(0,n12)]
+#	for i, job in jobs:
+#		sorted12[i] = job()
+#	print("sorted12: ", sorted12)
+#	del C
+##########
+
+
+
 
 def suffixArray(sa_lcp, js):
-	sa_lcp.SS = [0]*sa_lcp.N
+	n = sa_lcp.N
+	sa_lcp.SS = [0]*(n + 3)
+	sa_lcp.SS[n] = sa_lcp.SS[n+1] = sa_lcp.SS[n+2] = 0
 	jobs = [(inp, js.submit(fillSS,(sa_lcp.S,inp), )) for inp in range(0,n)]
 	for i, job in jobs:
 		sa_lcp.SS[i] = job()
@@ -91,7 +209,7 @@ def suffixArray(sa_lcp, js):
 
 #def suffixArray():
 
-fileName = "mississippi2"
+fileName = "mississippi"
 
 ppservers = ()
 job_server = pp.Server(ppservers=ppservers)
