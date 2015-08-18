@@ -5,5 +5,5 @@ def log2Up(i):
 	b = i-1
 	while (b > 0):
 		b = b >> 1
-		a++
+		a +=1
 	return a
