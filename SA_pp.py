@@ -1,9 +1,11 @@
-import pp, os, sys, time, dill
+import pp, os, sys, time, dill, operator
 import readFromFile
 from SA_LCP import SA_LCP
 import Utils
 from ArrRef import ArrRef
 from ArrRef import eBits
+from transpose import transpose
+from transpose import blockTrans
 
 dill.settings['recurse'] = True
 
@@ -15,19 +17,9 @@ MAX_RADIX = 8
 BUCKETS = 256
 _TRANS_THRESHHOLD = 64
 
-'''
-def integerSort(A, n, js):
-	maxV = reduce(A, n, max, js)
-	iSort(A, NULL, n, maxV, id, js)
-
-def integerSort(A, n, js):
-	maxV = mapReduce(A,n,max, ArrRef.getF, js)
-	iSort(A, NULL, n, maxV, ArrRef.getF, js)
-
-'''
 
 def radixBlock(A, B, Tmp, counts, offsets, Boffset, n, m, extract):
-	for i in range(0,m):
+'''	for i in range(0,m):
 		counts[i] = 0
 	for j in range(0,n):
 		k = Tmp = ArrRef(A[j]).eBitsExec(extract)
@@ -39,13 +31,13 @@ def radixBlock(A, B, Tmp, counts, offsets, Boffset, n, m, extract):
 	for j in range(n-1,-1,-1):
 		x -= offsets[Tmp[j]]
 		B[x] = A[j]
-
+'''
 def radialStepSerial(A, B, Tmp, buckets, n, m, extract):
-	radixBlock(A, B, Tmp, buckets, buckets, 0, n, m, extract)
+'''	radixBlock(A, B, Tmp, buckets, buckets, 0, n, m, extract)
 	for i in range(0,n):
 		A[i] = B[i]
 	return
-
+'''
 ###################
 
 def parallel_rBlock(A, B, Tmp, m, extract, cnts, nn, oB, i):
@@ -57,7 +49,7 @@ def parallel_rBlock(A, B, Tmp, m, extract, cnts, nn, oB, i):
 ##################
 
 def radixStep(A, B, Tmp, BK, numBK, n, m, top, extract, js):
-	expand = 32
+'''	expand = 32
 	blocks = min(numBK/3,(1+n/(BUCKETS*expand)))
 	if (blocks < 2):
 		radixStepSerial(A, B, Tmp, BK[0], n, m, extract)
@@ -67,19 +59,106 @@ def radixStep(A, B, Tmp, BK, numBK, n, m, top, extract, js):
 	oA = (BK+blocks)
 	oB = (BK+2*blocks)
 	
-	jobs = [(i, js.submit(parallel_rBlock, (A, B, Tmp, m, extract, cnts, nn, oB, i,), (radixBlock,))) for i in range(0,blocks)]
-	for i, job in jobs:
-		job()
+#	jobs = [(i, js.submit(parallel_rBlock, (A, B, Tmp, m, extract, cnts, nn, oB, i,), (radixBlock,))) for i in range(0,blocks)]
+#	for i, job in jobs:
+#		job()
+	for i in range(0, blocks):
+		od = i*nn
+		nni = min(max(n-od,0), nn)
+		radixBlock(A+od, B, Tmp+od, cnts + m*i, oB + m*i, od, nni, m, extract)
 	
+	transpose(cnts, oA).trans(blocks, m)
+
+	if(top):
+		ss = scan(oA, oA, blocks*m, operator.add, 0, js)
+	else:
+		ss = scanSerial(oA, oA, blocks*m, operator.add, 0, js)
+
+	blockTrans(B, A, oB, oA, cnts).trans(blocks,m)
+
+	for j in range(0,m):
+		BK[0][j] = oA[j*blocks]
+
+'''
+def radixLoopBottomUp(A, B, Tmp, BK, numBK, n, bits, top, f, js):
+'''
+	rounds = 1 + (bits - 1) / MAX_RADIX
+	rbits = 1+(bits-1)/rounds
+	bitOffset = 0
+	while(bitOffset < bits):
+		if (bitOffset+rbits > bits) 
+			rbits = bits-bitOffset
+		radixStep(A, B, Tmp, BK, numBK, n, 1 << rbits, top, eBits(rbits,bitOffset,f), js)
+		bitOffset += rbits
+'''
+	
+###################
+
+def parallel_rLoopTopD(n, offsets, y, i, A, B, Tmp, BK, bits, f, js):
+	segOffset = offsets[i]
+	segNextOffset = n if (i == BUCKETS-1) else offsets[i+1]
+	segLen = segNextOffset - segOffset
+	blocksOffset = (math.floor(segOffset * y)) + i + 1
+	blocksNextOffset = (math.floor(segNextOffset * y)) + i + 2
+	blockLen = blocksNextOffset - blocksOffset
+	radixLoopTopDown(A + segOffset, B + segOffset, Tmp + segOffset, BK + blocksOffset, blockLen, segLen, bits - MAX_RADIX, f, js)
+
+#################
 
 
-def iSort1(A, bucketOffsets, n, m, bottomUp, f, js):
-	x = iSortSpace(n)
-	print("x: ", x)
+def radixLoopTopDown(A, B, Tmp, BK, numBK, n, bits, f, js):
+'''
+	if (n == 0):
+		return
+	if (bits <= MAX_RADIX):
+		radixStep(A, B, Tmp, BK, numBK, n, 1 << bits, True, eBits(bits,0,f), js)
+	elif(numBK >= BUCKETS+1):
+		radixStep(A, B, Tmp, BK, numBK, n, BUCKETS, True, eBits(MAX_RADIX,bits-MAX_RADIX,f), js)
+		offsets = BK[0]
+		remain = numBK - BUCKETS - 1
+		y = remain / (float) n
 
+		jobs = [(i, js.submit(parallel_rLoopTopD, (n, offsets, y, i, A, B, Tmp, BK, bits, f, js), (radixStep,))) for i in range(0,BUCKETS)]
+		for i, job in jobs:
+			job()
+	else:
+		radixLoopBottomUp(A, B, Tmp, BK, numBK, n, bits, False, f, js)
+'''
+
+def iSort(A, bucketOffsets, n, m, bottomUp, f, js):
+	bits = Utils.log2Up(m)
+	B = [0]*n
+	Tmp = []*n
+	numBK = 1 + n/(BUCKETS*8)
+	BK = [0]*numBK
+	if (bottomUp):
+		radixLoopBottomUp(A, B, Tmp, BK, numBK, n, bits, True, f, js)
+	else:
+		radixLoopTopDown(A, B, Tmp. BK, numBK, n, bits, f, js)
+	if (bucketOffsets != None):
+		#paralelizar
+		for i in range(0,m):
+			bucketOffsets[i] = n
+		for i in range(0, n-1):
+			v = f(ArrRef(A[i]))
+			vn = f(ArrRef(A[i+1]))
+			if (v != vn):
+				bucketOffsets[vn] = i + 1
+		bucketOffsets[f(ArrRef(A[0]))] = 0
+		scanIBack(bucketOffsets,bucketOffsets, m, min, n);
+	del B
+	del Tmp
+	del BK
+
+
+def iSort(A, bucketOffsets, n, m, f, js):
+	iSort(A, bucketOffsets, n, m, False, f, js)
 
 def iSortInic(A, n, m, f, js):
-	iSort1(A, None, n, m, False, f, js)
+	iSort(A, None, n, m, False, f, js)
+
+def iSortBottomUp(A, n, m, f, js):
+	iSort(A, None, n, m, True, f, js)
 
 
 def radixSortPair(A, n, m, js):
@@ -186,6 +265,8 @@ def suffixArrayRec(s, n, K, js):
 ###########
 	sorted12 = [0]*n12
 	print(C)
+	for i in range(0,n12):
+		sorted12[i] = C[i][1]
 #	jobs = [(i, js.submit(fillSorted12,(C[i][1]),)) for i in range(0,n12)]
 #	for i, job in jobs:
 #		sorted12[i] = job()
