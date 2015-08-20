@@ -4,8 +4,9 @@ from SA_LCP import SA_LCP
 import Utils
 from ArrRef import ArrRef
 from ArrRef import eBits
-from transpose import transpose
-from transpose import blockTrans
+#from transpose import transpose
+#from transpose import blockTrans
+from compS import compS
 
 dill.settings['recurse'] = True
 
@@ -17,27 +18,31 @@ MAX_RADIX = 8
 BUCKETS = 256
 _TRANS_THRESHHOLD = 64
 
+def mod3iss1(i):
+	return (i%3 == 1)
+
 
 def radixBlock(A, B, Tmp, counts, offsets, Boffset, n, m, extract):
-'''	for i in range(0,m):
+	for i in range(0,m):
 		counts[i] = 0
 	for j in range(0,n):
-		k = Tmp = ArrRef(A[j]).eBitsExec(extract)
+		k = Tmp[j] = ArrRef(A[j]).eBitsExec(extract)
 		counts[k] += 1
 	s = Boffset
 	for i in range(0,m):
 		s += counts[i]
 		offsets[i] = s
 	for j in range(n-1,-1,-1):
-		x -= offsets[Tmp[j]]
+		offsets[Tmp[j]] = offsets[Tmp[j]] - 1
+		x = offsets[Tmp[j]]
 		B[x] = A[j]
-'''
-def radialStepSerial(A, B, Tmp, buckets, n, m, extract):
-'''	radixBlock(A, B, Tmp, buckets, buckets, 0, n, m, extract)
+
+def radixStepSerial(A, B, Tmp, buckets, n, m, extract):
+	radixBlock(A, B, Tmp, buckets, buckets, 0, n, m, extract)
 	for i in range(0,n):
 		A[i] = B[i]
 	return
-'''
+
 ###################
 
 def parallel_rBlock(A, B, Tmp, m, extract, cnts, nn, oB, i):
@@ -45,52 +50,27 @@ def parallel_rBlock(A, B, Tmp, m, extract, cnts, nn, oB, i):
 	nni = min(max(n-od,0), nn)
 	radixBlock(A+od, B, Tmp+od, cnts + m*i, oB + m*i, od, nni, m, extract)
 
-
 ##################
 
+#Se pudo lograr solo hacerlo hasta un tamano menor
 def radixStep(A, B, Tmp, BK, numBK, n, m, top, extract, js):
-'''	expand = 32
+	expand = 32
 	blocks = min(numBK/3,(1+n/(BUCKETS*expand)))
 	if (blocks < 2):
 		radixStepSerial(A, B, Tmp, BK[0], n, m, extract)
 		return
-	nn = (n+blocks-1)/blocks
-	cnts = BK
-	oA = (BK+blocks)
-	oB = (BK+2*blocks)
-	
-#	jobs = [(i, js.submit(parallel_rBlock, (A, B, Tmp, m, extract, cnts, nn, oB, i,), (radixBlock,))) for i in range(0,blocks)]
-#	for i, job in jobs:
-#		job()
-	for i in range(0, blocks):
-		od = i*nn
-		nni = min(max(n-od,0), nn)
-		radixBlock(A+od, B, Tmp+od, cnts + m*i, oB + m*i, od, nni, m, extract)
-	
-	transpose(cnts, oA).trans(blocks, m)
 
-	if(top):
-		ss = scan(oA, oA, blocks*m, operator.add, 0, js)
-	else:
-		ss = scanSerial(oA, oA, blocks*m, operator.add, 0, js)
 
-	blockTrans(B, A, oB, oA, cnts).trans(blocks,m)
-
-	for j in range(0,m):
-		BK[0][j] = oA[j*blocks]
-
-'''
 def radixLoopBottomUp(A, B, Tmp, BK, numBK, n, bits, top, f, js):
-'''
 	rounds = 1 + (bits - 1) / MAX_RADIX
 	rbits = 1+(bits-1)/rounds
 	bitOffset = 0
 	while(bitOffset < bits):
-		if (bitOffset+rbits > bits) 
+		if (bitOffset+rbits > bits):
 			rbits = bits-bitOffset
 		radixStep(A, B, Tmp, BK, numBK, n, 1 << rbits, top, eBits(rbits,bitOffset,f), js)
 		bitOffset += rbits
-'''
+
 	
 ###################
 
@@ -107,7 +87,6 @@ def parallel_rLoopTopD(n, offsets, y, i, A, B, Tmp, BK, bits, f, js):
 
 
 def radixLoopTopDown(A, B, Tmp, BK, numBK, n, bits, f, js):
-'''
 	if (n == 0):
 		return
 	if (bits <= MAX_RADIX):
@@ -116,25 +95,26 @@ def radixLoopTopDown(A, B, Tmp, BK, numBK, n, bits, f, js):
 		radixStep(A, B, Tmp, BK, numBK, n, BUCKETS, True, eBits(MAX_RADIX,bits-MAX_RADIX,f), js)
 		offsets = BK[0]
 		remain = numBK - BUCKETS - 1
-		y = remain / (float) n
-
+		y = remain / n
 		jobs = [(i, js.submit(parallel_rLoopTopD, (n, offsets, y, i, A, B, Tmp, BK, bits, f, js), (radixStep,))) for i in range(0,BUCKETS)]
 		for i, job in jobs:
 			job()
 	else:
 		radixLoopBottomUp(A, B, Tmp, BK, numBK, n, bits, False, f, js)
-'''
+
 
 def iSort(A, bucketOffsets, n, m, bottomUp, f, js):
 	bits = Utils.log2Up(m)
 	B = [0]*n
-	Tmp = []*n
+	Tmp = [0]*n
 	numBK = 1 + n/(BUCKETS*8)
-	BK = [0]*numBK
+	BK = [[0]*BUCKETS]*numBK
+
 	if (bottomUp):
 		radixLoopBottomUp(A, B, Tmp, BK, numBK, n, bits, True, f, js)
 	else:
-		radixLoopTopDown(A, B, Tmp. BK, numBK, n, bits, f, js)
+		radixLoopTopDown(A, B, Tmp, BK, numBK, n, bits, f, js)
+
 	if (bucketOffsets != None):
 		#paralelizar
 		for i in range(0,m):
@@ -151,8 +131,8 @@ def iSort(A, bucketOffsets, n, m, bottomUp, f, js):
 	del BK
 
 
-def iSort(A, bucketOffsets, n, m, f, js):
-	iSort(A, bucketOffsets, n, m, False, f, js)
+#def iSort(A, bucketOffsets, n, m, f, js):
+#	iSort(A, bucketOffsets, n, m, False, f, js)
 
 def iSortInic(A, n, m, f, js):
 	iSort(A, None, n, m, False, f, js)
@@ -225,12 +205,16 @@ def fillC(s, j):
 def fillCFirst(s, i):
 	return s[i]
 
-############
+##################
+# i = i, j = i - 1
+def fillName12(s, i, j):
+	if ((s[i] != s[j]) or (s[i + 1] != s[j + 1]) or (s[i+2] != s[j + 2])):
+		return 1
+	else:
+		return 0
 
-def fillSorted12(value):
-	return value
 
-############
+##################
 
 def suffixArrayRec(s, n, K, js):
 	n = n + 1
@@ -239,13 +223,13 @@ def suffixArrayRec(s, n, K, js):
 	n12 = n - n0
 	C = [0]*n12
 	bits = Utils.log2Up(K)
-	print("bits: ", bits)
 	if (bits < 11):
 		jobs = [(i, js.submit(fillCBig,(s, 1 + (i + i + i)/2,bits),)) for i in range(0,n12)]
 		for i, job in jobs:
 			C[i] = job()
 
-	#iniciar radixSort
+		#iniciar radixSort
+		print("C antes: ", C)
 		radixSortPair(C, n12, 1 << 3*bits, js)
 	else:
 		jobs = [(i, js.submit(fillC,(s,1 + (i + i + i)/2))) for i in range(0,n12)]
@@ -262,19 +246,30 @@ def suffixArrayRec(s, n, K, js):
 			C[i][0] = job()
 		radixSortPair(C, n12, K, js)
 
-###########
+
 	sorted12 = [0]*n12
 	print(C)
 	for i in range(0,n12):
 		sorted12[i] = C[i][1]
-#	jobs = [(i, js.submit(fillSorted12,(C[i][1]),)) for i in range(0,n12)]
-#	for i, job in jobs:
-#		sorted12[i] = job()
-#	print("sorted12: ", sorted12)
-#	del C
-##########
+	print("sorted12: ", sorted12)
+	del C
 
+	name12 = [0]*n12
+	jobs = [(i, js.submit(fillName12,(s, sorted12[i], sorted12[i-1]),)) for i in range(1,n12)]
+	for i, job in jobs:
+		name12[i] = job()
 
+	name12[0] = 1
+	print("name12: ",name12)
+##Aca!!!!
+	scanI(name12, name12, n12, operator.__add__, 0)
+	names = name12[n12-1]
+
+	SA12_LCP
+	SA12
+	LCP12 = None
+	
+	
 
 
 def suffixArray(sa_lcp, js):
@@ -293,7 +288,7 @@ def suffixArray(sa_lcp, js):
 fileName = "mississippi"
 
 ppservers = ()
-job_server = pp.Server(ppservers=ppservers)
+job_server = pp.Server(1, ppservers=ppservers)
 print (job_server.get_ncpus(), " workers\n")
 
 (S,n) = readFromFile.read(fileName)

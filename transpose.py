@@ -43,7 +43,7 @@ class blockTrans:
 					pb = B + OB[j*cLength + i]
 					l= L[i*rLength + j]
 					for k in range(0,k):
-					#revisar, por que la idea es ver la dirección de memoria
+					#revisar, por que la idea es ver la direccion de memoria
 						pb = pa
 						pb += 1
 						pa += 1
