@@ -17,6 +17,8 @@ _INT_MAX = sys.maxint
 MAX_RADIX = 8 
 BUCKETS = 256
 _TRANS_THRESHHOLD = 64
+_F_BSIZE = (2*_SCAN_BSIZE)
+_MERGE_BSIZE = 8192
 
 def mod3iss1(i):
 	return (i%3 == 1)
@@ -114,7 +116,7 @@ def iSort(A, bucketOffsets, n, m, bottomUp, f, js):
 		radixLoopBottomUp(A, B, Tmp, BK, numBK, n, bits, True, f, js)
 	else:
 		radixLoopTopDown(A, B, Tmp, BK, numBK, n, bits, f, js)
-
+	#caso bucket sea no vacio
 	if (bucketOffsets != None):
 		#paralelizar
 		for i in range(0,m):
@@ -216,6 +218,165 @@ def fillName12(s, i, j):
 
 ##################
 
+def scanSerial(Out, s, e, f, g, zero, inclusive, back, js):
+	r = zero
+	if (inclusive):
+		if (back):
+			for i in range(e-1,s-1, -1):
+				Our[i] = r = f(r,g(i))
+		else:
+			for i in range(s, e):
+				Out[i] = r = f(r,g(i))
+	else:
+		if (back):
+			for i in range(e-1, s-1, -1):
+				t = g(i)
+				Out[i] = r
+				r = f(r,t)
+		else:
+			for i in range(s, e):
+				t = g(i)
+                                Out[i] = r
+                                r = f(r,t)
+	return r
+
+def scan(Out, s, e, f, g, zero, inclusive, back, js):
+	n = e - s
+	l = nblocks(n, _SCAN_BSIZE)
+	if (l <= 2):
+		return scanSerial(Out, s, e, f, g, zero, inclusive, back, js)
+	#para blockes mayores a 2
+#	Sums = [0]*l
+#	Sums = blocked_for(s, e, _SCAN_BSIZE, reduceSerial, f, g, js)
+#	total = scan(Sums, 0, l, f, ArrRef(Sums).get, zero, False, back, js)
+
+
+
+def scanI(In, Out, n, f, zero, js):
+	return scan(Out, 0, n, f, ArrRef(In).get, zero, True, False, js)
+
+
+
+##############################
+
+def fillS12(name12, i):
+	return name12[i]
+
+
+######################
+
+def fillSA12(i, SA12, n1):
+	l = SA12[i]
+	if ((l < n1)):
+		return 3 * l + 1
+	else:
+		return 3 * (l - n1) + 2
+
+#####################
+
+def fillRank(i):
+	return i + 2
+
+
+###################
+
+def fillFl(p, In, i):
+	return p(In[i])
+
+
+####################
+
+
+def packSerial(Out, Fl, s, e, f, js):
+	k = 0
+	for i in range(s, e):
+		if (Fl[i]):
+			Out[k] = f(i)
+			k = k + 1
+	return k
+
+
+
+def pack(Out, Fl, s, e, f, js):
+	l = nblocks(e - s, _F_BSIZE)
+	if ( l <= 1):
+		return packSerial(Out, Fl, s, e, f, js)
+	
+
+
+def packInic(In, Out, Fl, n, js):
+	return pack(Out, Fl, 0, n, ArrRef(In).get, js)
+
+
+def filterI(In, Out, n, p, js):
+	Fl = [False]*n
+	jobs = [(i, js.submit(fillFl,(p, In, i),)) for i in range(0,n)]
+	for i, job in jobs:
+		Fl[i] = bool(job())
+	m = packInic(In, Out, Fl, n, js)
+	del Fl
+	return m
+
+########################
+
+def fillD(i, s, s0):
+	return [s[s0[i] - 1], s0[i] - 1]
+
+######################
+
+def fillSA0(D, i):
+	return D[i][1]
+
+
+#######################
+
+
+def binSearch(S, n, v, f):
+	T = S #apunta al comienzo de S
+	pT = 0
+	while (n > 0):
+		mid = n/2
+		if (f(v, T[mid])):
+			n = mid
+		else:
+			n = (n - mid) - 1
+			pT = pT + mid + 1
+	return 	pT
+
+def merge(S1, l1, S2, l2, R, f, o, js):
+	lr = l1 + l2
+	if ( lr > _MERGE_BSIZE):
+		if (l2 > l1):
+			merge(S2, l2, S1, l1, R, f, js)
+		else:
+			m1 = l1/2
+			m2 = binSearch(S2, l2, S1[m1], f) 
+			#paralelizar despues!
+			merge(S1, m1, S2, m2, R, f, js)
+			merge(S1, l1 - m1, S2, l2 - m2, R, f)
+	else:
+		#Son punteros, en python seian los indices en las listas
+		pR = 0 #inicio de R
+		pS1 = 0 + o # inicio de S1
+		pS2 = 0 + 1 - o #inicioo de S2
+		eS1 = l1 # corrido en l1
+		eS2 = l2 #corrido en l2
+		while (True):
+			if (pS1 ==eS1):
+				R[pR:pR] = S2[pS2:eS2]
+				break
+			if (pS2 == eS2):
+				R[pR:pR] = S1[pS1:eS1]
+				break
+			if f(S2[pS2],S1[pS1]):
+				R[pR] = S2[pS2]
+				pS2 = pS2 + 1
+			else:
+				R[pR] = S1[pS1]
+				pS1 = pS1 + 1
+			pR = pR + 1
+
+
 def suffixArrayRec(s, n, K, js):
 	n = n + 1
 	n0 = (n + 2)/3
@@ -229,7 +390,6 @@ def suffixArrayRec(s, n, K, js):
 			C[i] = job()
 
 		#iniciar radixSort
-		print("C antes: ", C)
 		radixSortPair(C, n12, 1 << 3*bits, js)
 	else:
 		jobs = [(i, js.submit(fillC,(s,1 + (i + i + i)/2))) for i in range(0,n12)]
@@ -248,10 +408,8 @@ def suffixArrayRec(s, n, K, js):
 
 
 	sorted12 = [0]*n12
-	print(C)
 	for i in range(0,n12):
 		sorted12[i] = C[i][1]
-	print("sorted12: ", sorted12)
 	del C
 
 	name12 = [0]*n12
@@ -260,15 +418,73 @@ def suffixArrayRec(s, n, K, js):
 		name12[i] = job()
 
 	name12[0] = 1
-	print("name12: ",name12)
-##Aca!!!!
-	scanI(name12, name12, n12, operator.__add__, 0)
+###listo hacia arriba
+	scanI(name12, name12, n12, operator.__add__, 0, js)
 	names = name12[n12-1]
 
-	SA12_LCP
-	SA12
 	LCP12 = None
+	SA12_LCP = None
+	SA12 = None
+
+	if (names < n12):
+		s12 = [0]*(n12 + 3)
+		s12[n12] = s12[n12 + 1] = s12[n12 + 2] = 0
+		jobs = [(i, js.submit(fillS12,(name12, i),)) for i in range(0,n12)]
+		for i, job in jobs:
+			if (sorted12[i] % 3 == 1):
+				s12[sorted12[i] / 3] = job()
+			else:
+				s12[sorted12[i] / 3 + n1] = job()
+		del name12
+		del sorted12
+		
+		SA12_LCP = suffixArrayRec(s12, n12, names+1, js)
+		SA12 = SA12_LCP
+		del s12
+
+		jobs = [(i, js.submit(fillSA12,(i, SA12, n1),)) for i in range(0,n12)]
+		for i, job in jobs:
+			SA12[i] = job()
+
+	else:
+		del name12
+		SA12 = sorted12
+
+	rank = [0]*(n + 2)
+	rank[n] = 1
+	rank[n + 1] = 0
+	jobs = [(i, js.submit(fillRank,(i,),)) for i in range(0,n12)]
+	for i, job in jobs:
+		rank[SA12[i]] = job()
+
+	s0 = [0]*n0
+	x = filterI(SA12, s0, n12, mod3iss1, js)
+	D = [0]*n0
+	D[0] = [s[n - 1], n - 1]
+	jobs = [(i, js.submit(fillD,(i, s, s0),)) for i in range(0,x)]
+	for i, job in jobs:
+		D[i + n0 - x] = job()
+	radixSortPair(D, n0, K, js)
+	SA0 = s0
+
+	jobs = [(i, js.submit(fillSA0,(D, i),)) for i in range(0,n0)]
+	for i, job in jobs:
+		SA0[i] = job()
+	print("SA0 ", SA0)
+	print("SA12 ", SA12)
+	del D
 	
+	comp = compS(s, rank)
+	SA = [0]*n
+	o = 1 if (n%3 == 1) else 0
+	merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp, o, js)
+	print("SA", SA)	
+	del SA0
+	del SA12
+	del rank		
+
+	return SA
+
 	
 
 
@@ -288,7 +504,7 @@ def suffixArray(sa_lcp, js):
 fileName = "mississippi"
 
 ppservers = ()
-job_server = pp.Server(1, ppservers=ppservers)
+job_server = pp.Server(8, ppservers=ppservers)
 print (job_server.get_ncpus(), " workers\n")
 
 (S,n) = readFromFile.read(fileName)
