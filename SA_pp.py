@@ -341,6 +341,7 @@ def binSearch(S, n, v, f):
 		else:
 			n = (n - mid) - 1
 			pT = pT + mid + 1
+	print("pT: ", pT)
 	return 	pT
 
 def merge(S1, l1, S2, l2, R, f, o, js):
@@ -421,6 +422,7 @@ def suffixArrayRec(s, n, K, js):
 ###listo hacia arriba
 	scanI(name12, name12, n12, operator.__add__, 0, js)
 	names = name12[n12-1]
+	print("names: ", names)
 
 	LCP12 = None
 	SA12_LCP = None
@@ -440,6 +442,7 @@ def suffixArrayRec(s, n, K, js):
 		
 		SA12_LCP = suffixArrayRec(s12, n12, names+1, js)
 		SA12 = SA12_LCP
+		print("SA12 despues de suffixArrayRec medio", SA12)
 		del s12
 
 		jobs = [(i, js.submit(fillSA12,(i, SA12, n1),)) for i in range(0,n12)]
@@ -449,6 +452,7 @@ def suffixArrayRec(s, n, K, js):
 	else:
 		del name12
 		SA12 = sorted12
+		print("sorted12: ",sorted12)
 
 	rank = [0]*(n + 2)
 	rank[n] = 1
@@ -470,19 +474,21 @@ def suffixArrayRec(s, n, K, js):
 	jobs = [(i, js.submit(fillSA0,(D, i),)) for i in range(0,n0)]
 	for i, job in jobs:
 		SA0[i] = job()
-	print("SA0 ", SA0)
-	print("SA12 ", SA12)
 	del D
 	
 	comp = compS(s, rank)
 	SA = [0]*n
 	o = 1 if (n%3 == 1) else 0
-	merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp, o, js)
-	print("SA", SA)	
+	print("SA0 antes de merge ", SA0)
+	print("SA12 antes de merge ", SA12)
+	merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp,o, js)
+        print("SA0 despues de merge ", SA0)
+        print("SA12 despues de merge ", SA12)
+
 	del SA0
 	del SA12
-	del rank		
-
+	del rank
+	print("SA antes de return: ", SA)
 	return SA
 
 	
