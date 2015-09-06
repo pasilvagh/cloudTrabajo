@@ -341,7 +341,6 @@ def binSearch(S, n, v, f):
 		else:
 			n = (n - mid) - 1
 			pT = pT + mid + 1
-	print("pT: ", pT)
 	return 	pT
 
 def merge(S1, l1, S2, l2, R, f, o, js):
@@ -363,19 +362,33 @@ def merge(S1, l1, S2, l2, R, f, o, js):
 		eS1 = l1 # corrido en l1
 		eS2 = l2 #corrido en l2
 		while (True):
-			if (pS1 ==eS1):
-				R[pR:pR] = S2[pS2:eS2]
+			if (pS1 == eS1):
+				if(eS2 == l2):
+					R[pR:pR] = S2[pS2:]
+				else:
+					R[pR:pR] = S2[pS2:eS2]
+				print(S2[pS2], S2[eS2])
 				break
 			if (pS2 == eS2):
-				R[pR:pR] = S1[pS1:eS1]
+				if(eS1 == l1):
+					R[pR:pR] = S1[pS1:]
+				else:
+					R[pR:pR] = S1[pS1:eS1]
+				print(S2[pS1], S2[eS1])
 				break
+			print("f(S2[pS2],S1[pS1]) ",f(S2[pS2],S1[pS1]))
 			if f(S2[pS2],S1[pS1]):
 				R[pR] = S2[pS2]
 				pS2 = pS2 + 1
+				pR = pR + 1
+				print("dentro if)")
+#				print("dentro if) lo que apunta pS2", S2[pS2])
 			else:
 				R[pR] = S1[pS1]
 				pS1 = pS1 + 1
-			pR = pR + 1
+				pR = pR + 1
+#				print("dentro else) lo que apunta pS1", S1[pS1])
+
 
 
 def suffixArrayRec(s, n, K, js):
@@ -422,7 +435,6 @@ def suffixArrayRec(s, n, K, js):
 ###listo hacia arriba
 	scanI(name12, name12, n12, operator.__add__, 0, js)
 	names = name12[n12-1]
-	print("names: ", names)
 
 	LCP12 = None
 	SA12_LCP = None
@@ -439,10 +451,10 @@ def suffixArrayRec(s, n, K, js):
 				s12[sorted12[i] / 3 + n1] = job()
 		del name12
 		del sorted12
-		
+
+
 		SA12_LCP = suffixArrayRec(s12, n12, names+1, js)
 		SA12 = SA12_LCP
-		print("SA12 despues de suffixArrayRec medio", SA12)
 		del s12
 
 		jobs = [(i, js.submit(fillSA12,(i, SA12, n1),)) for i in range(0,n12)]
@@ -452,7 +464,6 @@ def suffixArrayRec(s, n, K, js):
 	else:
 		del name12
 		SA12 = sorted12
-		print("sorted12: ",sorted12)
 
 	rank = [0]*(n + 2)
 	rank[n] = 1
@@ -469,6 +480,7 @@ def suffixArrayRec(s, n, K, js):
 	for i, job in jobs:
 		D[i + n0 - x] = job()
 	radixSortPair(D, n0, K, js)
+
 	SA0 = s0
 
 	jobs = [(i, js.submit(fillSA0,(D, i),)) for i in range(0,n0)]
@@ -481,6 +493,7 @@ def suffixArrayRec(s, n, K, js):
 	o = 1 if (n%3 == 1) else 0
 	print("SA0 antes de merge ", SA0)
 	print("SA12 antes de merge ", SA12)
+# merge(S1, l1, S2, l2, R, f, o, js):
 	merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp,o, js)
         print("SA0 despues de merge ", SA0)
         print("SA12 despues de merge ", SA12)
