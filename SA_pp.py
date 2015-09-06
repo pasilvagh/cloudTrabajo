@@ -361,33 +361,38 @@ def merge(S1, l1, S2, l2, R, f, o, js):
 		pS2 = 0 + 1 - o #inicioo de S2
 		eS1 = l1 # corrido en l1
 		eS2 = l2 #corrido en l2
+		S1.extend([None])
+		S2.extend([None])
 		while (True):
 			if (pS1 == eS1):
 				if(eS2 == l2):
 					R[pR:pR] = S2[pS2:]
 				else:
 					R[pR:pR] = S2[pS2:eS2]
-				print(S2[pS2], S2[eS2])
+				del S1[-1]
+				del S2[-1]
 				break
 			if (pS2 == eS2):
 				if(eS1 == l1):
 					R[pR:pR] = S1[pS1:]
 				else:
 					R[pR:pR] = S1[pS1:eS1]
-				print(S2[pS1], S2[eS1])
+				del S1[-1]
+                                del S2[-1]
 				break
 			print("f(S2[pS2],S1[pS1]) ",f(S2[pS2],S1[pS1]))
 			if f(S2[pS2],S1[pS1]):
+
+				print("dentro if) lo que apunta pS2", S2[pS2])
 				R[pR] = S2[pS2]
 				pS2 = pS2 + 1
 				pR = pR + 1
-				print("dentro if)")
-#				print("dentro if) lo que apunta pS2", S2[pS2])
 			else:
+
+				print("dentro else) lo que apunta pS1", S1[pS1])
 				R[pR] = S1[pS1]
 				pS1 = pS1 + 1
 				pR = pR + 1
-#				print("dentro else) lo que apunta pS1", S1[pS1])
 
 
 
