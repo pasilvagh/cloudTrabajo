@@ -343,7 +343,11 @@ def binSearch(S, n, v, f):
 			pT = pT + mid + 1
 	return 	pT
 
+#merge(SA0+o, n0-o, SA12+1-o, n12+o-1, SA, comp);
+#merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp,o, js)
+
 def merge(S1, l1, S2, l2, R, f, o, js):
+	print("l1: ", l1, " l2: ", l2)
 	lr = l1 + l2
 	if ( lr > _MERGE_BSIZE):
 		if (l2 > l1):
@@ -358,21 +362,18 @@ def merge(S1, l1, S2, l2, R, f, o, js):
 		#Son punteros, en python seian los indices en las listas
 		pR = 0 #inicio de R
 		pS1 = 0 + o # inicio de S1
-		pS2 = 0 + 1 - o #inicioo de S2
-		eS1 = l1 # corrido en l1
-		eS2 = l2 #corrido en l2
+		pS2 = 0 + 1 - o #inicio de S2
+		eS1 = pS1 + l1 # corrido en l1
+		eS2 = pS2 + l2 #corrido en l2
 		while (True):
+			print("S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
 			if (pS1 == eS1):
-				if(eS2 == l2):
-					R[pR:pR] = S2[pS2:]
-				else:
-					R[pR:pR] = S2[pS2:eS2]
+				print("dentro de pS1 == eS1) S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
+				R[pR:pR] = S2[pS2:eS2 + 1]
 				break
 			if (pS2 == eS2):
-				if(eS1 == l1):
-					R[pR:pR] = S1[pS1:]
-				else:
-					R[pR:pR] = S1[pS1:eS1]
+				print("dentro de pS2 == eS2) S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
+				R[pR:pR] = S1[pS1:eS1 + 1]
 				break
 			print("f(S2[pS2],S1[pS1]) ",f(S2[pS2],S1[pS1]))
 			if f(S2[pS2],S1[pS1]):
@@ -454,6 +455,7 @@ def suffixArrayRec(s, n, K, js):
 
 		SA12_LCP = suffixArrayRec(s12, n12, names+1, js)
 		SA12 = SA12_LCP
+		SA12 = SA12[:-3]
 		del s12
 
 		jobs = [(i, js.submit(fillSA12,(i, SA12, n1),)) for i in range(0,n12)]
@@ -492,7 +494,8 @@ def suffixArrayRec(s, n, K, js):
 	o = 1 if (n%3 == 1) else 0
 	print("SA0 antes de merge ", SA0)
 	print("SA12 antes de merge ", SA12)
-# merge(S1, l1, S2, l2, R, f, o, js):
+	SA12.extend([-1])
+	SA0.extend([-1])
 	merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp,o, js)
         print("SA0 despues de merge ", SA0)
         print("SA12 despues de merge ", SA12)
