@@ -369,11 +369,11 @@ def merge(S1, l1, S2, l2, R, f, o, js):
 			print("S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
 			if (pS1 == eS1):
 				print("dentro de pS1 == eS1) S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
-				R[pR:pR] = S2[pS2:eS2 + 1]
+				R[pR:pR] = S2[pS2:eS2]
 				break
 			if (pS2 == eS2):
 				print("dentro de pS2 == eS2) S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
-				R[pR:pR] = S1[pS1:eS1 + 1]
+				R[pR:pR] = S1[pS1:eS1]
 				break
 			print("f(S2[pS2],S1[pS1]) ",f(S2[pS2],S1[pS1]))
 			if f(S2[pS2],S1[pS1]):
@@ -497,6 +497,8 @@ def suffixArrayRec(s, n, K, js):
 	SA12.extend([-1])
 	SA0.extend([-1])
 	merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp,o, js)
+	SA12 = SA12[:-1]
+	SA0 = SA0[:-1]
         print("SA0 despues de merge ", SA0)
         print("SA12 despues de merge ", SA12)
 
