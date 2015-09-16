@@ -347,7 +347,6 @@ def binSearch(S, n, v, f):
 #merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp,o, js)
 
 def merge(S1, l1, S2, l2, R, f, o, js):
-	print("l1: ", l1, " l2: ", l2)
 	lr = l1 + l2
 	if ( lr > _MERGE_BSIZE):
 		if (l2 > l1):
@@ -366,25 +365,19 @@ def merge(S1, l1, S2, l2, R, f, o, js):
 		eS1 = pS1 + l1 # corrido en l1
 		eS2 = pS2 + l2 #corrido en l2
 		while (True):
-			print("S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
 			if (pS1 == eS1):
-				print("dentro de pS1 == eS1) S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
 				R[pR:pR] = S2[pS2:eS2]
 				break
 			if (pS2 == eS2):
-				print("dentro de pS2 == eS2) S1[pS1]: ", S1[pS1], " S1[eS1]: ", S1[eS1], " S2[pS2]: ", S2[pS2], " S2[eS2]: ", S2[eS2])
 				R[pR:pR] = S1[pS1:eS1]
 				break
-			print("f(S2[pS2],S1[pS1]) ",f(S2[pS2],S1[pS1]))
 			if f(S2[pS2],S1[pS1]):
 
-				print("dentro if) lo que apunta pS2", S2[pS2])
 				R[pR] = S2[pS2]
 				pS2 = pS2 + 1
 				pR = pR + 1
 			else:
 
-				print("dentro else) lo que apunta pS1", S1[pS1])
 				R[pR] = S1[pS1]
 				pS1 = pS1 + 1
 				pR = pR + 1
@@ -492,15 +485,11 @@ def suffixArrayRec(s, n, K, js):
 	comp = compS(s, rank)
 	SA = [0]*n
 	o = 1 if (n%3 == 1) else 0
-	print("SA0 antes de merge ", SA0)
-	print("SA12 antes de merge ", SA12)
 	SA12.extend([-1])
 	SA0.extend([-1])
 	merge(SA0, n0-o, SA12, n12+o-1, SA, comp.comp,o, js)
 	SA12 = SA12[:-1]
 	SA0 = SA0[:-1]
-        print("SA0 despues de merge ", SA0)
-        print("SA12 despues de merge ", SA12)
 
 	del SA0
 	del SA12
