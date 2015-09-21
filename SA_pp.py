@@ -54,6 +54,7 @@ def parallel_rBlock(A, B, Tmp, m, extract, cnts, nn, oB, i):
 
 ##################
 
+
 #Se pudo lograr solo hacerlo hasta un tamano menor
 def radixStep(A, B, Tmp, BK, numBK, n, m, top, extract, js):
 	expand = 32
@@ -61,6 +62,18 @@ def radixStep(A, B, Tmp, BK, numBK, n, m, top, extract, js):
 	if (blocks < 2):
 		radixStepSerial(A, B, Tmp, BK[0], n, m, extract)
 		return
+'''
+	nn = (n + blocks - 1)/ blocks
+	cnts = BK
+	oA = (BK + blocks)
+	oB = (BK + 2*blocks)
+
+	jobs = [(i, js.submit(pBlocked_for, (_ss, i, _bsize, _ee, body, f, g,), (reduceSerial,))) for i in range(0,blocks)]
+        for i, job in jobs:
+                sums[i] = job()
+        return sums
+
+'''	
 
 
 def radixLoopBottomUp(A, B, Tmp, BK, numBK, n, bits, top, f, js):
@@ -399,6 +412,7 @@ def suffixArrayRec(s, n, K, js):
 		#iniciar radixSort
 		radixSortPair(C, n12, 1 << 3*bits, js)
 	else:
+		print("con bits mayor a 11")
 		jobs = [(i, js.submit(fillC,(s,1 + (i + i + i)/2))) for i in range(0,n12)]
 		for i, job in jobs:
 			C[i] = job()
@@ -448,7 +462,6 @@ def suffixArrayRec(s, n, K, js):
 
 		SA12_LCP = suffixArrayRec(s12, n12, names+1, js)
 		SA12 = SA12_LCP
-		SA12 = SA12[:-3]
 		del s12
 
 		jobs = [(i, js.submit(fillSA12,(i, SA12, n1),)) for i in range(0,n12)]
@@ -511,16 +524,22 @@ def suffixArray(sa_lcp, js):
 	k = 1 + reduceInit(sa_lcp.SS, sa_lcp.N, max, js)
 	SA_LCP = suffixArrayRec(sa_lcp.SS, sa_lcp.N, k, js)
 
-#def suffixArray():
+fileName = ""
 
-fileName = "mississippi"
+if len(sys.argv) < 2:
+	sys.exit('Usage: %s filename' % sys.argv[0])
 
-ppservers = ()
-job_server = pp.Server(8, ppservers=ppservers)
-print (job_server.get_ncpus(), " workers\n")
+if not os.path.exists(sys.argv[1]):
+	sys.exit('ERROR: file %s was not found!' % sys.argv[1])
+else:
+	fileName = str(sys.argv[1])
 
-(S,n) = readFromFile.read(fileName)
-sa_lcp = SA_LCP(S,n)
-time1 = time.clock()
-SA = suffixArray(sa_lcp, job_server)
-print("time: ",time.clock()-time1)
+	ppservers = ()
+	job_server = pp.Server(1, ppservers=ppservers)
+	print (job_server.get_ncpus(), " workers\n")
+
+	(S,n) = readFromFile.read(fileName)
+	sa_lcp = SA_LCP(S,n)
+	time1 = time.clock()
+	SA = suffixArray(sa_lcp, job_server)
+	print("time: ",time.clock()-time1)
